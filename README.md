@@ -4,13 +4,13 @@ Standalone NestJS application (Express adapter), TypeScript and PostgreSQL. The 
 
 ## Local setup
 
-Use Node.js 22+ and PostgreSQL 17 (or a Neon development database). From this directory:
+Use Node.js 22+ and the Supabase PostgreSQL database (or a local PostgreSQL 17 database). From this directory:
 
 ```sh
 npm ci
 ```
 
-Copy `.env.example` to `.env`, set `DATABASE_URL` to an existing database, and set `FRONTEND_ORIGIN=http://localhost:3000`. Then:
+If `.env` does not already exist, copy `.env.example` to `.env` and replace `YOUR-PASSWORD` with the URL-encoded database password (for example, a space becomes `%20`). `.env` is git-ignored; keep credentials out of committed files. The configured frontend origin is `https://project-thegreatdategame.netlify.app`; development also allows localhost ports 3000 and 5173. Then:
 
 ```sh
 npm run build
@@ -20,9 +20,9 @@ npm run dev
 
 The server listens on `0.0.0.0`, using `PORT` (default 3001). `GET /api/v1/health` checks the database. `npm start` runs the production build. See the frontend README for its separate setup.
 
-## Neon and Render
+## Supabase and Render
 
-Create a Neon project/database. Copy its PostgreSQL connection URL from the Connect panel into Render's secret `DATABASE_URL`; retain TLS parameters. The application uses the `pg` connection pool, not local files. Do not put this URL in frontend environment variables. Neon provides standard [PostgreSQL connection URIs](https://api-docs.neon.tech/reference/getconnectionuri).
+The database uses the Supabase session pooler at `aws-0-us-east-1.pooler.supabase.com:5432`, with database `postgres` and user `postgres.lrtnnesvwpgcedpxfglj`. Set Render's secret `DATABASE_URL` to the value from your local `.env`. The application uses the `pg` connection pool. Do not put this URL in frontend environment variables; the git-ignored `.env` is not included in a repository deployment.
 
 Create a Render **Web Service** from this repository using these settings:
 
@@ -35,9 +35,9 @@ Create a Render **Web Service** from this repository using these settings:
 | Health check | `/api/v1/health` |
 | Environment | `NODE_ENV=production`, `DATABASE_URL`, `FRONTEND_ORIGIN` |
 
-Set `FRONTEND_ORIGIN` to the exact Netlify origin, e.g. `https://your-date.netlify.app`, without a trailing slash. Multiple explicitly trusted origins can be comma-separated. Development automatically includes localhost ports 3000 and 5173; production does not. For local phones, explicitly add the frontend LAN origin. CORS allows GET/POST/OPTIONS and Authorization/Content-Type; no wildcard origins. See Render's [service settings](https://render.com/docs/web-services) and [root-directory behavior](https://render.com/docs/monorepo-support).
+Set `FRONTEND_ORIGIN=https://project-thegreatdategame.netlify.app`, without a trailing slash. Multiple explicitly trusted origins can be comma-separated. Development automatically includes localhost ports 3000 and 5173; production does not. For local phones, explicitly add the frontend LAN origin. CORS allows GET/POST/OPTIONS and Authorization/Content-Type; no wildcard origins. See Render's [service settings](https://render.com/docs/web-services) and [root-directory behavior](https://render.com/docs/monorepo-support).
 
-Migrations run before the service starts, including on free services. They use a transaction, an advisory lock and a migration ledger so concurrent starts cannot apply them twice. SQL files remain in `migrations/` alongside `dist/` on deployment. No Render disk is needed. Accounts, credentials, actual Netlify origin and production deployment remain owner setup steps; this project has not been deployed by this task.
+Migrations run before the service starts, including on free services. They use a transaction, an advisory lock and a migration ledger so concurrent starts cannot apply them twice. SQL files remain in `migrations/` alongside `dist/` on deployment. No Render disk is needed. Configure the hosting environment variables separately; local `.env` setup does not deploy the project.
 
 ## API and persistence
 
