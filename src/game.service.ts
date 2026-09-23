@@ -57,16 +57,24 @@ export class GameService implements OnModuleDestroy {
     await c.query('UPDATE sessions SET state=$2,guest_hash=$3,last_active=now() WHERE id=$1',[row.id,row.state,row.guest_hash]);
   }
   async join(body:unknown) {
-    const {joinCode}=parse(z.object({joinCode:z.string().trim().toUpperCase().regex(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5}$/)}).strict(),body);
+    const {joinCode,playerToken}=parse(z.object({
+      joinCode:z.string().trim().toUpperCase().regex(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5}$/),
+      playerToken:z.string().regex(/^[A-Za-z0-9_-]{43}$/).optional()
+    }).strict(),body);
     return this.transaction(async c=>{
       const r=await c.query<Row>("SELECT *, last_active < now()-interval '6 hours' AS expired FROM sessions WHERE join_code=$1 FOR UPDATE",[joinCode]);
       const row=r.rows[0];
       if(!row) return fail(404,'Join code not found. Check the five-character code.');
       if(row.expired) return fail(410,'This session expired after six hours of inactivity.');
+      // Only possession of the original credential can recover a committed join.
+      // The row lock also makes concurrent retries allocate exactly one seat.
+      if(playerToken && row.guest_hash===hash(playerToken)) {
+        return {sessionId:row.id,playerToken,playerRole:'guest'};
+      }
       if(row.state.status==='ended') return fail(409,'This date has already ended.');
       if(row.guest_hash) return fail(409,'This session already has two players.');
       if(row.state.status!=='lobby') return fail(409,'This date has already started.');
-      const token=randomBytes(32).toString('base64url');
+      const token=playerToken || randomBytes(32).toString('base64url');
       row.guest_hash=hash(token); row.state.guest=player('guest'); await this.save(c,row);
       return {sessionId:row.id,playerToken:token,playerRole:'guest'};
     });
